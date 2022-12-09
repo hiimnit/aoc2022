@@ -63,37 +63,20 @@ fn main() {
     }
 
     println!("part 2: {}", set.len());
+
+    println!("{}", -2 % 2);
 }
 
 fn calc_tail_movement(head: &(i32, i32), tail: &(i32, i32)) -> (i32, i32) {
-    match (head.0 - tail.0, head.1 - tail.1) {
-        (2, 2) => (1, 1),
-        (2, 1) => (1, 1),
-        (2, 0) => (1, 0),
-        (2, -1) => (1, -1),
-        (2, -2) => (1, -1),
-        (0, 2) => (0, 1),
-        (1, 2) => (1, 1),
-        (-1, 2) => (-1, 1),
-        (1, 1) => (0, 0),
-        (1, -1) => (0, 0),
-        (1, 0) => (0, 0),
-        (0, 1) => (0, 0),
-        (0, 0) => (0, 0),
-        (0, -1) => (0, 0),
-        (-1, 0) => (0, 0),
-        (-1, 1) => (0, 0),
-        (-1, -1) => (0, 0),
-        (-1, -2) => (-1, -1),
-        (1, -2) => (1, -1),
-        (0, -2) => (0, -1),
-        (-2, 2) => (-1, 1),
-        (-2, 1) => (-1, 1),
-        (-2, 0) => (-1, 0),
-        (-2, -1) => (-1, -1),
-        (-2, -2) => (-1, -1),
-        _ => unimplemented!("Unimplemented position combination (head: {head:?} tail: {tail:?})."),
+    let vector = (head.0 - tail.0, head.1 - tail.1);
+
+    // if both parts are 1 or smaller, do nothing
+    if vector.0.abs() < 2 && vector.1.abs() < 2 {
+        return (0, 0);
     }
+
+    // else move tail - difference of 2 is clamped to 1
+    (vector.0.clamp(-1, 1), vector.1.clamp(-1, 1))
 }
 
 fn dir_to_movement(direction: &str) -> (i32, i32) {
