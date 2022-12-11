@@ -2,6 +2,10 @@ use std::collections::HashMap;
 use std::env;
 use std::fs;
 
+// this was originally supposed to be much nicer/cleaner
+// but then some closure issues appeared
+// and then part 2 happened
+
 #[derive(Debug)]
 struct Monkey {
     items: Vec<Item>,
@@ -231,6 +235,13 @@ fn main() {
 
     println!("part 2: {result}");
 }
+
+// the idea is that since the only operations are multiplication and addition
+// we can store only the remainder for each monkey
+// each inspection then updates all posible results for each monkey for current item
+
+// (A * B) mod C = (A mod C * B mod C) mod C
+// (A + B) mod C = (A mod C + B mod C) mod C
 
 #[derive(Debug)]
 struct Item {
