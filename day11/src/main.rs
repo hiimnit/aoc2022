@@ -2,13 +2,15 @@ use std::collections::HashMap;
 use std::env;
 use std::fs;
 
+#[derive(Debug)]
 struct Monkey {
-    items: Vec<i32>,
+    items: Vec<Item>,
     operation: Operation,
     test: Test,
-    inspection_count: i32,
+    inspection_count: i64,
 }
 
+#[derive(Debug)]
 struct Operation {
     first: String,
     op: String,
@@ -24,39 +26,40 @@ impl Operation {
         }
     }
 
-    pub fn call(self: &Self, i: i32) -> i32 {
+    pub fn call(self: &Self, i: i64) -> i64 {
         let first = match self.first.as_ref() {
             "old" => i,
             number => number
-                .parse::<i32>()
-                .expect(format!("Could not parse {} as i32.", self.first).as_ref()),
+                .parse::<i64>()
+                .expect(format!("Could not parse {} as i64.", self.first).as_ref()),
         };
         let op = Box::new(match self.op.as_ref() {
-            "+" => |a: i32, b: i32| a + b,
-            "-" => |a: i32, b: i32| a - b,
-            "*" => |a: i32, b: i32| a * b,
-            "/" => |a: i32, b: i32| a / b,
+            "+" => |a: i64, b: i64| a + b,
+            "-" => |a: i64, b: i64| a - b,
+            "*" => |a: i64, b: i64| a * b,
+            "/" => |a: i64, b: i64| a / b,
             _ => unimplemented!("Unexpected operator."),
         });
         let second = match self.second.as_ref() {
             "old" => i,
             number => number
-                .parse::<i32>()
-                .expect(format!("Could not parse {} as i32.", self.second).as_ref()),
+                .parse::<i64>()
+                .expect(format!("Could not parse {} as i64.", self.second).as_ref()),
         };
 
         op(first, second)
     }
 }
 
+#[derive(Debug)]
 struct Test {
-    divisor: i32,
+    divisor: i64,
     on_true: usize,
     on_false: usize,
 }
 
 impl Test {
-    pub fn new(divisor: i32, on_true: usize, on_false: usize) -> Self {
+    pub fn new(divisor: i64, on_true: usize, on_false: usize) -> Self {
         Self {
             divisor,
             on_true,
@@ -64,7 +67,7 @@ impl Test {
         }
     }
 
-    pub fn call(self: &Self, i: i32) -> usize {
+    pub fn call(self: &Self, i: i64) -> usize {
         if i % self.divisor == 0 {
             return self.on_true;
         }
@@ -73,7 +76,7 @@ impl Test {
 }
 
 impl Monkey {
-    pub fn new(items: Vec<i32>, operation: Operation, test: Test) -> Self {
+    pub fn new(items: Vec<Item>, operation: Operation, test: Test) -> Self {
         Monkey {
             items,
             operation,
@@ -104,8 +107,8 @@ impl Monkey {
         {
             ["Starting items", items] => items
                 .split(",")
-                .map(|e| e.trim().parse::<i32>().unwrap())
-                .collect::<Vec<i32>>(),
+                .map(|e| Item::new(e.trim().parse::<i64>().unwrap()))
+                .collect::<Vec<Item>>(),
             _ => unimplemented!("Could not find the monkey's items."),
         };
 
@@ -133,7 +136,7 @@ impl Monkey {
             .split_whitespace()
             .collect::<Vec<&str>>()[..]
         {
-            ["Test:", "divisible", "by", number] => number.parse::<i32>().unwrap(),
+            ["Test:", "divisible", "by", number] => number.parse::<i64>().unwrap(),
             _ => unimplemented!(),
         };
         let test_true = match lines
@@ -181,91 +184,89 @@ fn main() {
         monkeys.insert(i, monkey);
     }
 
+    let divisors = monkeys.iter().map(|e| e.test.divisor).collect::<Vec<i64>>();
+
+    for monkey in &mut monkeys {
+        for item in &mut monkey.items {
+            for divisor in &divisors {
+                item.add_test(divisor.clone())
+            }
+        }
+    }
+
     for r in 0..10000 {
-        println!("Round {r}");
+        if r % 1000 == 0 {
+            println!("round {r}");
+        }
 
         for i in 0..monkeys.len() {
-            // println!("Monkey {i}");
+            loop {
+                let item_option = monkeys[i].items.pop();
+                if let None = item_option {
+                    break;
+                }
+                let mut item = item_option.unwrap();
 
-            for j in 0..monkeys[i].items.len() {
-                // println!(
-                //     "\tMonkey inspects item with a worry level of {}.",
-                //     monkeys[i].items[j]
-                // );
+                item.update(&monkeys[i].operation);
 
-                let item = monkeys[i].items[j];
-                let result = monkeys[i].operation.call(item); // / 3;
-                let new_index = monkeys[i].test.call(result);
-
-                // println!(
-                //     "\t\tNew worry level: {result} / 3 = {}, test {} = {} {}, passed to monkey {new_index}.",
-                //     result / 3,
-                //     monkeys[i].test.divisor,
-                //     result % monkeys[i].test.divisor,
-                //     result % monkeys[i].test.divisor == 0
-                // );
+                let new_index = if item.tests[&monkeys[i].test.divisor].divisible {
+                    monkeys[i].test.on_true
+                } else {
+                    monkeys[i].test.on_false
+                };
 
                 monkeys[i].inspection_count += 1;
-                monkeys[new_index].items.push(result);
+                monkeys[new_index].items.push(item);
             }
-            monkeys[i].items.clear();
         }
     }
 
     let mut monkey_business = monkeys
         .iter()
         .map(|e| e.inspection_count)
-        .collect::<Vec<i32>>();
+        .collect::<Vec<i64>>();
     monkey_business.sort();
 
-    let result: i32 = monkey_business.iter().rev().take(2).product();
+    let result: i64 = monkey_business.iter().rev().take(2).product();
 
-    println!("part 1: {result}");
+    println!("part 2: {result}");
 }
 
-// 23
-// 19
-// 13
-// 17
-
-// item is n
-// n *
-// nasobek min?
-
-// n % _ == 0
-// 23 * 19 * 13 * 17 * x % _ == 0
-// 23 * 19 * 13 * 17 % _ == 0
-
-// (23 * 19 * 13 * 17 * x) + 1 % _ == (23 * 19 * 13 * 17) + 1 % _
-
-// 13 7 3 19 5 2 11 17
-
-// (23 * 19 * 13 * 17 * x) + 1
-
-// (A + B) mod C = (A mod C + B mod C) mod C
-// => just store A? for each item for each monkey
-// (A * B) mod C = (A mod C * B mod C) mod C
-
+#[derive(Debug)]
 struct Item {
-    tests: HashMap<i32, ItemTest>,
+    original: i64,
+    tests: HashMap<i64, ItemTest>,
 }
 
 impl Item {
-    pub fn new() -> Self {
+    pub fn new(original: i64) -> Self {
         Item {
+            original,
             tests: HashMap::new(),
+        }
+    }
+
+    pub fn add_test(self: &mut Self, divisor: i64) {
+        self.tests
+            .insert(divisor, ItemTest::new(divisor, self.original));
+    }
+
+    pub fn update(self: &mut Self, operation: &Operation) {
+        for (_, test) in &mut self.tests {
+            test.update(operation);
         }
     }
 }
 
+#[derive(Debug)]
 struct ItemTest {
-    divisor: i32,
-    n: i32,
+    divisor: i64,
+    n: i64,
     divisible: bool,
 }
 
 impl ItemTest {
-    pub fn new(divisor: i32, n: i32) -> Self {
+    pub fn new(divisor: i64, n: i64) -> Self {
         ItemTest {
             divisor,
             n,
@@ -275,5 +276,6 @@ impl ItemTest {
 
     pub fn update(self: &mut Self, operation: &Operation) {
         self.n = operation.call(self.n) % self.divisor;
+        self.divisible = self.n == 0;
     }
 }
