@@ -1,5 +1,4 @@
 use std::env;
-use std::fmt;
 use std::fs;
 
 #[derive(Debug, Clone)]
@@ -76,11 +75,15 @@ fn main() {
         rocks.push(rock);
     }
 
+    max_depth += 2;
+
     println!("{rocks:?}, {x_range:?}, {max_depth}");
 
     let mut scan = vec![vec![Point::Air; x_range.1 - x_range.0 + 1]; max_depth + 1];
+    let mut offset = x_range.0;
 
-    // pretty_print_scan(&scan);
+    pretty_print_scan(&scan);
+
     for rock in rocks {
         for (p1, p2) in rock.iter().zip(rock.iter().skip(1)) {
             match (p1.0 == p2.0, p1.1 == p2.1) {
@@ -89,7 +92,7 @@ fn main() {
                     range.sort();
 
                     for i in range[0]..=range[1] {
-                        scan[i][p1.0 - x_range.0] = Point::Rock;
+                        scan[i][p1.0 - offset] = Point::Rock;
                     }
                 }
                 (false, true) => {
@@ -97,7 +100,7 @@ fn main() {
                     range.sort();
 
                     for i in range[0]..=range[1] {
-                        scan[p1.1][i - x_range.0] = Point::Rock;
+                        scan[p1.1][i - offset] = Point::Rock;
                     }
                 }
                 _ => unimplemented!(),
@@ -105,51 +108,116 @@ fn main() {
         }
     }
 
-    // pretty_print_scan(&scan); // TODO loop - add sand
+    let last_row_index = scan.len() - 1;
+    for i in 0..scan[0].len() {
+        scan[last_row_index][i] = Point::Rock;
+    }
 
-    let origin = 500 - x_range.0;
+    pretty_print_scan(&scan);
+
+    let mut origin = 500 - offset;
     let mut counter = 0;
-    'outer: loop {
-        let mut position = (origin, 0);
+    loop {
+        let mut position = (origin as i32, 0);
+
+        if let Some(Point::Rock) | Some(Point::Sand) = get_point(&scan, position) {
+            println!("The cave is filled");
+            break;
+        }
 
         loop {
             match get_point(&scan, (position.0, position.1 + 1)) {
+                // next position is air -> continue
                 Some(Point::Air) => {
                     position = (position.0, position.1 + 1);
                     continue;
                 }
+                // next position is sand or rock
                 Some(Point::Sand) | Some(Point::Rock) => {
-                    if let Some(Point::Air) = get_point(&scan, (position.0 - 1, position.1 + 1)) {
-                        position = (position.0 - 1, position.1 + 1);
-                        continue;
+                    // check the position to the left, if air -> continue
+                    match get_point(&scan, (position.0 - 1, position.1 + 1)) {
+                        Some(Point::Air) => {
+                            position = (position.0 - 1, position.1 + 1);
+                            continue;
+                        }
+                        None => {
+                            // out of bounds -> expand
+                            expand(&mut scan, position.0 == 0);
+                            if position.0 == 0 {
+                                position = (position.0 + 1, position.1);
+                                offset += 1;
+                                origin += 1;
+                            }
+                            continue;
+                        }
+                        _ => (),
                     }
 
-                    if let Some(Point::Air) = get_point(&scan, (position.0 + 1, position.1 + 1)) {
-                        position = (position.0 + 1, position.1 + 1);
-                        continue;
+                    // check the position to the right, if air -> continue
+                    match get_point(&scan, (position.0 + 1, position.1 + 1)) {
+                        Some(Point::Air) => {
+                            position = (position.0 + 1, position.1 + 1);
+                            continue;
+                        }
+                        None => {
+                            // out of bounds -> expand
+                            expand(&mut scan, position.0 == 0);
+                            if position.0 == 0 {
+                                position = (position.0 + 1, position.1);
+                                offset += 1;
+                                origin += 1;
+                            }
+
+                            continue;
+                        }
+                        _ => (),
                     }
 
-                    scan[position.1][position.0] = Point::Sand;
+                    // else place sand
+                    scan[position.1][position.0 as usize] = Point::Sand;
                     break;
                 }
-                None => {
-                    break 'outer;
-                }
+                None => unimplemented!("Ran out of bounds."),
             }
         }
-
-        // if counter % 100 == 0 {
-        //     pretty_print_scan(&scan);
-        // }
 
         counter += 1;
     }
 
     pretty_print_scan(&scan);
 
-    println!("part 1: {counter}");
+    println!("result: {counter}");
 }
 
-fn get_point(scan: &Vec<Vec<Point>>, (x, y): (usize, usize)) -> Option<&Point> {
-    scan.get(y)?.get(x)
+fn get_point(scan: &Vec<Vec<Point>>, (x, y): (i32, usize)) -> Option<&Point> {
+    if x < 0 || (x as usize) >= scan[0].len() {
+        return None;
+    }
+    scan.get(y)?.get(x as usize)
+}
+
+fn expand(scan: &mut Vec<Vec<Point>>, start: bool) -> () {
+    let length = scan.len();
+
+    if start {
+        for (i, line) in scan.iter_mut().enumerate() {
+            line.insert(
+                0,
+                if i == length - 1 {
+                    Point::Rock
+                } else {
+                    Point::Air
+                },
+            );
+        }
+        return;
+    }
+
+    for (i, line) in scan.iter_mut().enumerate() {
+        line.push(if i == length - 1 {
+            Point::Rock
+        } else {
+            Point::Air
+        });
+    }
 }
