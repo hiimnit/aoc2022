@@ -52,7 +52,7 @@ fn main() {
         map.process_instruction(instruction);
     }
 
-    println!("part 1: {}", map.calculate_password());
+    println!("part 2: {}", map.calculate_password());
 }
 
 #[derive(Clone, PartialEq)]
@@ -82,7 +82,7 @@ enum Turn {
     Counterclockwise,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 enum Direction {
     Right,
     Down,
@@ -188,11 +188,7 @@ impl Map {
         };
 
         for _ in 0..number {
-            let mut next_position = self.get_next_position(self.position);
-
-            while self.points[next_position.0][next_position.1] == Point::Nothing {
-                next_position = self.get_next_position(next_position);
-            }
+            let (next_position, next_direction) = self.get_next_position(self.position);
 
             match self.points[next_position.0][next_position.1] {
                 Point::Nothing => unimplemented!("Unexpected input!"),
@@ -201,28 +197,80 @@ impl Map {
             }
 
             self.position = next_position;
+            self.direction = next_direction;
         }
     }
 
-    fn get_next_position(self: &Self, position: (usize, usize)) -> (usize, usize) {
+    fn get_next_position(self: &Self, position: (usize, usize)) -> ((usize, usize), Direction) {
         let delta = self.direction.delta();
-        let mut next_position = (position.0 as i32 + delta.0, position.1 as i32 + delta.1);
+        let next_position = (position.0 as i32 + delta.0, position.1 as i32 + delta.1);
 
         if next_position.0 < 0 {
-            next_position.0 = (self.points.len() - 1) as i32;
+            match next_position.1 {
+                50..=99 => {
+                    return (
+                        (3 * 50 + (next_position.1 as usize - 50), 0),
+                        Direction::Right,
+                    );
+                }
+                100..=149 => {
+                    return ((4 * 50 - 1, next_position.1 as usize - 100), Direction::Up);
+                }
+                _ => unimplemented!("Unexpected state"),
+            }
         }
-        if next_position.0 >= self.points.len() as i32 {
-            next_position.0 = 0;
-        }
-
         if next_position.1 < 0 {
-            next_position.1 = (self.points[0].len() - 1) as i32;
-        }
-        if next_position.1 >= self.points[0].len() as i32 {
-            next_position.1 = 0;
+            match next_position.0 {
+                100..=149 => {
+                    return (
+                        (50 - (next_position.0 as usize % 50) - 1, 50),
+                        Direction::Right,
+                    );
+                }
+                150..=199 => {
+                    return ((0, 50 + next_position.0 as usize % 50), Direction::Down);
+                }
+                _ => unimplemented!("Unexpected state"),
+            }
         }
 
-        (next_position.0 as usize, next_position.1 as usize)
+        let next_position = (next_position.0 as usize, next_position.1 as usize);
+
+        match (next_position.0, next_position.1, &self.direction) {
+            (200, 0..=49, Direction::Down) => {
+                return ((0, 100 + next_position.1), Direction::Down);
+            }
+            (0..=49, 150, Direction::Right) => {
+                return ((100 + (49 - next_position.0), 99), Direction::Left);
+            }
+            (0..=49, 49, Direction::Left) => {
+                return ((100 + (49 - next_position.0), 0), Direction::Right);
+            }
+            (50..=99, 49, Direction::Left) => {
+                return ((100, next_position.0 - 50), Direction::Down);
+            }
+            (99, 0..=49, Direction::Up) => {
+                return ((50 + next_position.1, 50), Direction::Right);
+            }
+            (50, 100..=149, Direction::Down) => {
+                return ((50 + (next_position.1 - 100), 99), Direction::Left);
+            }
+            (50..=99, 100, Direction::Right) => {
+                return ((49, 100 + (next_position.0 - 50)), Direction::Up);
+            }
+            (100..=149, 100, Direction::Right) => {
+                return ((49 - (next_position.0 - 100), 149), Direction::Left);
+            }
+            (150, 50..=99, Direction::Down) => {
+                return ((150 + (next_position.1 - 50), 49), Direction::Left);
+            }
+            (150..=199, 50, Direction::Right) => {
+                return ((149, 50 + (next_position.0 - 150)), Direction::Up);
+            }
+            _ => {}
+        }
+
+        ((next_position.0, next_position.1), self.direction.clone())
     }
 
     pub fn calculate_password(self: &Self) -> usize {
